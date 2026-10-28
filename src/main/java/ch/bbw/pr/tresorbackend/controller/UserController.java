@@ -3,6 +3,7 @@ package ch.bbw.pr.tresorbackend.controller;
 import ch.bbw.pr.tresorbackend.model.*;
 import ch.bbw.pr.tresorbackend.service.PasswordEncryptService;
 import ch.bbw.pr.tresorbackend.service.UserService;
+import ch.bbw.pr.tresorbackend.util.EncryptUtil;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -44,8 +45,8 @@ public class UserController {
       //input validation
       if (bindingResult.hasErrors()) {
          List<String> errors = bindingResult.getFieldErrors().stream()
-               .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
-               .collect(Collectors.toList());
+                 .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
+                 .collect(Collectors.toList());
          System.out.println("UserController.createUser " + errors);
 
          JsonArray arr = new JsonArray();
@@ -63,14 +64,17 @@ public class UserController {
       //todo add implementation
       System.out.println("UserController.createUser, password validation passed");
 
-      //transform registerUser to user
+      //transform registerUser to user:
+      // - password is stored as hash (bcrypt + pepper)
+      // - a new salt is generated, it is used later to derive the key for the secrets of this user
       User user = new User(
-            null,
-            registerUser.getFirstName(),
-            registerUser.getLastName(),
-            registerUser.getEmail(),
-            passwordService.hashPassword(registerUser.getPassword())
-            );
+              null,
+              registerUser.getFirstName(),
+              registerUser.getLastName(),
+              registerUser.getEmail(),
+              passwordService.hashPassword(registerUser.getPassword()),
+              EncryptUtil.generateSalt()
+      );
 
       User savedUser = userService.createUser(user);
       JsonObject obj = new JsonObject();
@@ -136,8 +140,8 @@ public class UserController {
       //input validation
       if (bindingResult.hasErrors()) {
          List<String> errors = bindingResult.getFieldErrors().stream()
-               .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
-               .collect(Collectors.toList());
+                 .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
+                 .collect(Collectors.toList());
          System.out.println("UserController.createUser " + errors);
 
          JsonArray arr = new JsonArray();
@@ -149,7 +153,6 @@ public class UserController {
          System.out.println("UserController.createUser, validation fails: " + json);
          return ResponseEntity.badRequest().body(json);
       }
-
       System.out.println("UserController.getUserIdByEmail: input validation passed");
 
       User user = userService.findByEmail(email.getEmail());
@@ -174,7 +177,8 @@ public class UserController {
    @CrossOrigin(origins = "${CROSS_ORIGIN}")
    @PostMapping("/login")
    public ResponseEntity<LoginResponse> doLoginUser(@RequestBody LoginUser loginUser, BindingResult bindingResult) {
-      System.out.println("UserController.doLoginUser: " + loginUser);
+      //never print the whole loginUser: its toString contains the password
+      System.out.println("UserController.doLoginUser: login attempt for " + loginUser.getEmail());
 
       if (bindingResult.hasErrors()) {
          String errorMessage = bindingResult.getFieldErrors().stream()
@@ -185,14 +189,16 @@ public class UserController {
 
       User user = userService.findByEmail(loginUser.getEmail());
 
+      //same answer for "unknown email" and "wrong password", so nobody can find out which emails exist
       if (user == null) {
          System.out.println("UserController.doLoginUser: user not found");
-         return ResponseEntity.badRequest().body(new LoginResponse("No user found with this email", null));
+         return new ResponseEntity<>(new LoginResponse("Login failed", null), HttpStatus.UNAUTHORIZED);
       }
 
+      //hash the entered password again (pepper + salt of the stored hash) and compare with the hash in the db
       if (!passwordService.doPasswordMatch(loginUser.getPassword(), user.getPassword())) {
-         System.out.println("Password doesn't match");
-         return new ResponseEntity<>(new LoginResponse("Loggin failed", user.getId()), HttpStatus.UNAUTHORIZED);
+         System.out.println("UserController.doLoginUser: password doesn't match");
+         return new ResponseEntity<>(new LoginResponse("Login failed", null), HttpStatus.UNAUTHORIZED);
       }
 
       System.out.println("UserController.doLoginUser: login successful");

@@ -1,5 +1,6 @@
 package ch.bbw.pr.tresorbackend.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -30,6 +31,12 @@ public class User {
    @Column(nullable = false, unique = true)
    private String email;
 
+   //bcrypt hash (contains its own salt), pepper is not part of it
    @Column(nullable = false)
    private String password;
+
+   //salt to derive the AES key for the secrets of this user (Base64)
+   @JsonIgnore
+   @Column(name="encryption_salt")
+   private String encryptionSalt;
 }
