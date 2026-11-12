@@ -64,9 +64,7 @@ public class UserController {
       //todo add implementation
       System.out.println("UserController.createUser, password validation passed");
 
-      //transform registerUser to user:
-      // - password is stored as hash (bcrypt + pepper)
-      // - a new salt is generated, it is used later to derive the key for the secrets of this user
+      //transform registerUser to user
       User user = new User(
               null,
               registerUser.getFirstName(),
@@ -153,6 +151,7 @@ public class UserController {
          System.out.println("UserController.createUser, validation fails: " + json);
          return ResponseEntity.badRequest().body(json);
       }
+
       System.out.println("UserController.getUserIdByEmail: input validation passed");
 
       User user = userService.findByEmail(email.getEmail());
@@ -177,8 +176,7 @@ public class UserController {
    @CrossOrigin(origins = "${CROSS_ORIGIN}")
    @PostMapping("/login")
    public ResponseEntity<LoginResponse> doLoginUser(@RequestBody LoginUser loginUser, BindingResult bindingResult) {
-      //never print the whole loginUser: its toString contains the password
-      System.out.println("UserController.doLoginUser: login attempt for " + loginUser.getEmail());
+      System.out.println("UserController.doLoginUser: " + loginUser.getEmail());
 
       if (bindingResult.hasErrors()) {
          String errorMessage = bindingResult.getFieldErrors().stream()
@@ -189,16 +187,14 @@ public class UserController {
 
       User user = userService.findByEmail(loginUser.getEmail());
 
-      //same answer for "unknown email" and "wrong password", so nobody can find out which emails exist
       if (user == null) {
          System.out.println("UserController.doLoginUser: user not found");
-         return new ResponseEntity<>(new LoginResponse("Login failed", null), HttpStatus.UNAUTHORIZED);
+         return ResponseEntity.badRequest().body(new LoginResponse("No user found with this email", null));
       }
 
-      //hash the entered password again (pepper + salt of the stored hash) and compare with the hash in the db
       if (!passwordService.doPasswordMatch(loginUser.getPassword(), user.getPassword())) {
-         System.out.println("UserController.doLoginUser: password doesn't match");
-         return new ResponseEntity<>(new LoginResponse("Login failed", null), HttpStatus.UNAUTHORIZED);
+         System.out.println("Password doesn't match");
+         return new ResponseEntity<>(new LoginResponse("Loggin failed", user.getId()), HttpStatus.UNAUTHORIZED);
       }
 
       System.out.println("UserController.doLoginUser: login successful");
