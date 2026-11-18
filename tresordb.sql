@@ -24,6 +24,16 @@ CREATE TABLE secret (
                         FOREIGN KEY (user_id) REFERENCES user(id)
 );
 
+CREATE TABLE password_reset_token (
+                                      id INT NOT NULL AUTO_INCREMENT,
+                                      token VARCHAR(100) NOT NULL,
+                                      user_id INT NOT NULL,
+                                      expiry_date DATETIME NOT NULL,
+                                      PRIMARY KEY (id),
+                                      UNIQUE (token),
+                                      FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
+);
+
 INSERT INTO `user` (`id`, `first_name`, `last_name`, `email`, `password`) VALUES
                                                                               (1, 'Hans', 'Muster', 'hans.muster@bbw.ch', 'abcd'),
                                                                               (2, 'Paula', 'Kuster', 'paula.kuster@bbw.ch', 'efgh'),

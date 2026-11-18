@@ -1,5 +1,6 @@
 package ch.bbw.pr.tresorbackend.model;
 
+import ch.bbw.pr.tresorbackend.util.PasswordValidator;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -24,10 +25,12 @@ public class RegisterUser {
    private String email;
 
    @NotEmpty (message="Password is required.")
+   @Pattern(regexp = PasswordValidator.PASSWORD_REGEX, message = PasswordValidator.PASSWORD_MESSAGE)
    private String password;
 
    @NotEmpty (message="Password-confirmation is required.")
    private String passwordConfirmation;
 
+   //token from the captcha in the frontend, it is checked in the CaptchaService
    private String recaptchaToken;
 }

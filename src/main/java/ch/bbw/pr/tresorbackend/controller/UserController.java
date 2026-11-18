@@ -1,6 +1,7 @@
 package ch.bbw.pr.tresorbackend.controller;
 
 import ch.bbw.pr.tresorbackend.model.*;
+import ch.bbw.pr.tresorbackend.service.CaptchaService;
 import ch.bbw.pr.tresorbackend.service.PasswordEncryptService;
 import ch.bbw.pr.tresorbackend.service.UserService;
 import ch.bbw.pr.tresorbackend.util.EncryptUtil;
@@ -31,18 +32,14 @@ public class UserController {
 
    private UserService userService;
    private PasswordEncryptService passwordService;
+   private CaptchaService captchaService;
    private static final Logger logger = LoggerFactory.getLogger(UserController.class);
 
    // build create User REST API
    @CrossOrigin(origins = "${CROSS_ORIGIN}")
    @PostMapping
    public ResponseEntity<String> createUser(@Valid @RequestBody RegisterUser registerUser, BindingResult bindingResult) {
-      //captcha
-      //todo add implementation
-
-      System.out.println("UserController.createUser: captcha passed.");
-
-      //input validation
+      //input validation (includes the password strength rule, see RegisterUser)
       if (bindingResult.hasErrors()) {
          List<String> errors = bindingResult.getFieldErrors().stream()
                  .map(fieldError -> fieldError.getField() + ": " + fieldError.getDefaultMessage())
@@ -60,9 +57,19 @@ public class UserController {
       }
       System.out.println("UserController.createUser: input validation passed");
 
-      //password validation
-      //todo add implementation
+      //password has to be equal to the confirmation
+      if (!registerUser.getPassword().equals(registerUser.getPasswordConfirmation())) {
+         System.out.println("UserController.createUser, password != passwordConfirmation");
+         return badRequest("Password and password-confirmation are not equal.");
+      }
       System.out.println("UserController.createUser, password validation passed");
+
+      //captcha: the token from the frontend is checked at google (see CaptchaService)
+      if (!captchaService.verifyCaptcha(registerUser.getRecaptchaToken())) {
+         System.out.println("UserController.createUser, captcha failed");
+         return badRequest("Captcha check failed. Please solve the captcha again.");
+      }
+      System.out.println("UserController.createUser: captcha passed.");
 
       //transform registerUser to user
       User user = new User(
@@ -75,14 +82,13 @@ public class UserController {
       );
 
       User savedUser = userService.createUser(user);
-      JsonObject obj = new JsonObject();
-      if (savedUser != null) {
-         System.out.println("UserController.createUser, user saved in db");
-         obj.addProperty("answer", "User saved");
-      } else {
+      if (savedUser == null) {
          System.out.println("UserController.createUser, user not saved in db");
-         obj.addProperty("answer", "User not saved");
+         return badRequest("User could not be saved. Maybe this e-mail is already registered.");
       }
+      System.out.println("UserController.createUser, user saved in db");
+      JsonObject obj = new JsonObject();
+      obj.addProperty("answer", "User saved");
       String json = new Gson().toJson(obj);
       System.out.println("UserController.createUser " + json);
       return ResponseEntity.accepted().body(json);
@@ -199,6 +205,16 @@ public class UserController {
 
       System.out.println("UserController.doLoginUser: login successful");
       return ResponseEntity.ok(new LoginResponse("Login successful", user.getId()));
+   }
+
+
+   //error answer in the format {"message": ["..."]}
+   private ResponseEntity<String> badRequest(String message) {
+      JsonArray arr = new JsonArray();
+      arr.add(message);
+      JsonObject obj = new JsonObject();
+      obj.add("message", arr);
+      return ResponseEntity.badRequest().body(new Gson().toJson(obj));
    }
 
 }
